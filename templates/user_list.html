@@ -1,0 +1,13 @@
+<ul>
+    {% for user in users %}
+        <li>
+            <a href="{% url 'chat_page' user.id %}">
+                {{ user.username }}
+            </a>
+
+            {% if user.is_online %}
+                🟢
+            {% endif %}
+        </li>
+    {% endfor %}
+</ul>
