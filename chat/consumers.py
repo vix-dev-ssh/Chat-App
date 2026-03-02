@@ -88,14 +88,49 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await self.set_user_offline()
     
+    # async def mark_messages_as_read(self):
+    #     await sync_to_async(
+    #         Message.objects.filter(
+    #             sender_id=self.other_user_id,
+    #             receiver_id=self.user.id,
+    #             is_read=False
+    #         ).update
+    #     )(is_read=True)
+
     async def mark_messages_as_read(self):
-        await sync_to_async(
+        # Get unread message IDs
+        unread_messages = await sync_to_async(
+            list
+        )(
             Message.objects.filter(
                 sender_id=self.other_user_id,
                 receiver_id=self.user.id,
                 is_read=False
+            ).values_list("id", flat=True)
+        )
+
+        # Update them
+        await sync_to_async(
+            Message.objects.filter(
+                id__in=unread_messages
             ).update
         )(is_read=True)
+
+        # Notify sender via WebSocket
+        for message_id in unread_messages:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "read_receipt",
+                    "message_id": message_id,
+                }
+            )
+    
+    async def read_receipt(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "read_receipt",
+            "message_id": event["message_id"]
+        }))
     
     async def set_user_online(self):
         await sync_to_async(
@@ -125,7 +160,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
         receiver = await sync_to_async(User.objects.get)(id=self.other_user_id)
 
         # Save message to DB
-        await sync_to_async(Message.objects.create)(
+        # await sync_to_async(Message.objects.create)(
+        #     sender=self.user,
+        #     receiver=receiver,
+        #     content=message
+        # )
+
+        # await self.channel_layer.group_send(
+        #     self.room_group_name,
+        #     {
+        #         "type": "chat_message",
+        #         "message": message,
+        #         "sender": self.user.username,
+        #     }
+        # )
+        # Save message to DB
+        new_message = await sync_to_async(Message.objects.create)(
             sender=self.user,
             receiver=receiver,
             content=message
@@ -137,11 +187,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "type": "chat_message",
                 "message": message,
                 "sender": self.user.username,
+                "message_id": new_message.id,
             }
         )
 
+    # async def chat_message(self, event):
+    #     await self.send(text_data=json.dumps({
+    #         "message": event["message"],
+    #         "sender": event["sender"],
+    #     }))
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
+            "type": "chat_message",
             "message": event["message"],
             "sender": event["sender"],
+            "message_id": event["message_id"],
         }))

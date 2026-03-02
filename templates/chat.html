@@ -1,50 +1,92 @@
-<h2>Chat with {{ other_user.username }}</h2>
+{% extends "index.html" %}
 
-<a href="{% url 'user_list' %}">Back</a>
+{% block content %}
+<div class="card">
+    <h2>Chat with {{ other_user.username }}</h2>
 
-<div id="chat-box" style="border:1px solid black; height:300px; overflow-y:scroll; padding:10px;">
-    <!-- {% for message in messages %}
-        <p>
-            <strong>{{ message.sender.username }}:</strong>
-            {{ message.content }}
-        </p>
-    {% endfor %} -->
-    {% for message in messages %}
-        <p>
-            <strong>{{ message.sender.username }}:</strong>
-            {{ message.content }}
+    <div id="chat-box" class="chat-box">
+        {% for message in messages %}
+            <div class="message {% if message.sender.id == request.user.id %}sent{% else %}received{% endif %}">
+                <strong>{{ message.sender.username }}:</strong>
+                {{ message.content }}
 
-            {% if message.sender.id == request.user.id %}
-                {% if message.is_read %}
-                    ✓✓
-                {% else %}
-                    ✓
+                {% if message.sender.id == request.user.id %}
+                    <span class="status">
+                        {% if message.is_read %}
+                            ✓✓
+                        {% else %}
+                            ✓
+                        {% endif %}
+                    </span>
                 {% endif %}
-            {% endif %}
-        </p>
-    {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+
+    <input type="text" id="message-input" placeholder="Type message">
+    <button onclick="sendMessage()">Send</button>
+
 </div>
+{% endblock %}
 
-<input type="text" id="message-input" placeholder="Type message">
-<button onclick="sendMessage()">Send</button>
-<p>Current user ID: {{ request.user.id }}</p>
-<p>Other user ID: {{ other_user.id }}</p>
-
+{% block scripts %}
 <script>
     const userId = "{{ other_user.id }}";
     const socket = new WebSocket(
         "ws://" + window.location.host + "/ws/chat/" + userId + "/"
     );
 
+    // socket.onmessage = function(event) {
+    //     const data = JSON.parse(event.data);
+    //     const chatBox = document.getElementById("chat-box");
+
+    //     const messageElement = document.createElement("p");
+    //     messageElement.innerHTML = "<strong>" + data.sender + ":</strong> " + data.message;
+
+    //     chatBox.appendChild(messageElement);
+    //     chatBox.scrollTop = chatBox.scrollHeight;
+    // };
+
     socket.onmessage = function(event) {
         const data = JSON.parse(event.data);
         const chatBox = document.getElementById("chat-box");
 
-        const messageElement = document.createElement("p");
-        messageElement.innerHTML = "<strong>" + data.sender + ":</strong> " + data.message;
+        if (data.type === "chat_message") {
+            const messageElement = document.createElement("div");
+            messageElement.classList.add("message");
 
-        chatBox.appendChild(messageElement);
-        chatBox.scrollTop = chatBox.scrollHeight;
+            if (data.sender === "{{ request.user.username }}") {
+                messageElement.classList.add("sent");
+            } else {
+                messageElement.classList.add("received");
+            }
+
+            messageElement.setAttribute("data-id", data.message_id);
+
+            let content = "<strong>" + data.sender + ":</strong> " + data.message;
+
+            if (data.sender === "{{ request.user.username }}") {
+                content += " <span class='status'>✓</span>";
+            }
+
+            messageElement.innerHTML = content;
+
+            chatBox.appendChild(messageElement);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        if (data.type === "read_receipt") {
+            const messageElement = document.querySelector(
+                `[data-id='${data.message_id}']`
+            );
+
+            if (messageElement) {
+                const statusSpan = messageElement.querySelector(".status");
+                if (statusSpan) {
+                    statusSpan.innerText = "✓✓";
+                }
+            }
+        }
     };
 
     function sendMessage() {
@@ -60,3 +102,4 @@
         input.value = "";
     }
 </script>
+{% endblock %}

@@ -1,13 +1,19 @@
-<ul>
+{% extends "index.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Users</h2>
+    <a href="{% url 'logout' %}">Logout</a>
+
     {% for user in users %}
-        <li>
+        <div class="user-list-item">
             <a href="{% url 'chat_page' user.id %}">
                 {{ user.username }}
             </a>
-
             {% if user.is_online %}
-                🟢
+                <span class="online-dot"></span>
             {% endif %}
-        </li>
+        </div>
     {% endfor %}
-</ul>
+</div>
+{% endblock %}
