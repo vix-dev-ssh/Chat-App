@@ -32,9 +32,15 @@
 {% block scripts %}
 <script>
     const userId = "{{ other_user.id }}";
+    // const socket = new WebSocket(
+    //     "ws://" + window.location.host + "/ws/chat/" + userId + "/"
+    // );
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+
     const socket = new WebSocket(
-        "ws://" + window.location.host + "/ws/chat/" + userId + "/"
+        protocol + "://" + window.location.host + "/ws/chat/" + userId + "/"
     );
+
 
     // socket.onmessage = function(event) {
     //     const data = JSON.parse(event.data);
